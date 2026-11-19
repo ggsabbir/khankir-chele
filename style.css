@@ -1,0 +1,911 @@
+:root {
+  --bg-canvas: #050507;
+  --bg-surface: rgba(10, 10, 14, 0.78);
+  --bg-surface-strong: rgba(15, 15, 20, 0.92);
+  --bg-fallback: #121218;
+
+  --border-hairline: rgba(255, 255, 255, 0.12);
+  --border-crimson: rgba(220, 38, 38, 0.55);
+  --border-crimson-dim: rgba(220, 38, 38, 0.28);
+
+  --crimson: #dc2626;
+  --crimson-bright: #ef4444;
+  --crimson-pale: #fecaca;
+  --crimson-glow: rgba(220, 38, 38, 0.32);
+  --cyan-glitch: rgba(34, 211, 238, 0.58);
+
+  --text-primary: #f4f4f6;
+  --text-secondary: #c4c4cc;
+  --text-muted: #787886;
+  --text-white: #ffffff;
+
+  --scrim-heavy: rgba(5, 5, 7, 0.88);
+  --scrim-mid: rgba(5, 5, 7, 0.42);
+  --scrim-lightbox: rgba(5, 5, 8, 0.96);
+  --flash-white: rgba(255, 255, 255, 0.28);
+  --shadow-deep: rgba(0, 0, 0, 0.92);
+
+  --radius-sharp: 4px;
+  --radius-media: 10px;
+
+  --font-display: "Alkatra", system-ui, sans-serif;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1.55;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+
+body {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  overflow-x: clip;
+}
+
+body.lightbox-open {
+  overflow: hidden;
+}
+
+:focus-visible {
+  outline: 2px solid var(--crimson-bright);
+  outline-offset: 3px;
+}
+
+/* ==========================================================================
+   ডাইনামিক স্কেয়ারি B&W + ফ্লিকার + ফ্ল্যাশ + ক্রোম্যাটিক ব্যাকগ্রাউন্ড
+   ========================================================================== */
+.scary-bg {
+  --bg-img: url("./images/tarif-1.jpg");
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg-canvas);
+}
+
+.bg-layer {
+  position: absolute;
+  inset: -5%;
+  background-image: var(--bg-img);
+  background-size: cover;
+  background-position: center 20%;
+  background-repeat: no-repeat;
+  will-change: transform, opacity;
+}
+
+.bg-base {
+  filter: grayscale(100%) contrast(1.6) brightness(0.36);
+  animation:
+    scaryDrift 18s ease-in-out infinite alternate,
+    horrorFlicker 4.6s steps(1, end) infinite;
+}
+
+/* ফ্লিকার হিট লেয়ার (ফিল্টার না এনিমেট করে শুধু opacity দিয়ে হাই-এক্সপোজার ফ্ল্যাশ) */
+.bg-base-flash {
+  filter: grayscale(100%) contrast(2.25) brightness(0.82);
+  opacity: 0;
+  animation: scaryExposureHit 5.8s steps(1, end) infinite;
+}
+
+.bg-chroma-red {
+  filter: grayscale(100%) contrast(1.75) brightness(0.46) sepia(100%)
+    hue-rotate(-50deg) saturate(600%);
+  mix-blend-mode: screen;
+  opacity: 0.28;
+  animation: chromaShiftRed 3.5s steps(2, end) infinite;
+}
+
+.bg-chroma-cyan {
+  filter: grayscale(100%) contrast(1.75) brightness(0.42) sepia(100%)
+    hue-rotate(140deg) saturate(500%);
+  mix-blend-mode: screen;
+  opacity: 0.22;
+  animation: chromaShiftCyan 4.1s steps(2, end) infinite;
+}
+
+.scary-bg.is-switching .bg-base-flash {
+  opacity: 0.95;
+}
+
+.scary-bg.is-switching .bg-chroma-red {
+  transform: translate(-14px, 4px) scale(1.04);
+  opacity: 0.72;
+}
+
+.scary-bg.is-switching .bg-chroma-cyan {
+  transform: translate(14px, -4px) scale(1.04);
+  opacity: 0.68;
+}
+
+.bg-scanlines {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    var(--scrim-mid) 3px
+  );
+  opacity: 0.7;
+}
+
+.bg-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 35%,
+    var(--flash-white),
+    var(--crimson-glow) 55%,
+    transparent 85%
+  );
+  opacity: 0;
+  mix-blend-mode: overlay;
+  animation: scaryFlash 6.4s linear infinite;
+}
+
+.bg-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 78% 64% at 55% 28%,
+      var(--scrim-mid) 0%,
+      var(--scrim-heavy) 72%,
+      var(--bg-canvas) 100%
+    ),
+    linear-gradient(to bottom, var(--scrim-mid), var(--bg-canvas) 96%);
+}
+
+@keyframes scaryDrift {
+  0% {
+    transform: scale(1.03) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.11) translate(-1%, -1.5%);
+  }
+}
+
+@keyframes horrorFlicker {
+  0%, 19%, 21%, 82%, 100% {
+    opacity: 0.9;
+  }
+  20% {
+    opacity: 0.32;
+  }
+  83% {
+    opacity: 0.22;
+  }
+  84% {
+    opacity: 0.96;
+  }
+}
+
+@keyframes scaryExposureHit {
+  0%, 54%, 56%, 92%, 94%, 100% {
+    opacity: 0;
+  }
+  55% {
+    opacity: 0.8;
+  }
+  93% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes chromaShiftRed {
+  0%, 84%, 100% {
+    transform: translate(-3px, 0);
+    opacity: 0.24;
+  }
+  85% {
+    transform: translate(-12px, 2px);
+    opacity: 0.62;
+  }
+  87% {
+    transform: translate(5px, -2px);
+    opacity: 0.42;
+  }
+  89% {
+    transform: translate(-3px, 0);
+    opacity: 0.24;
+  }
+}
+
+@keyframes chromaShiftCyan {
+  0%, 72%, 100% {
+    transform: translate(3px, 0);
+    opacity: 0.2;
+  }
+  73% {
+    transform: translate(12px, -2px);
+    opacity: 0.56;
+  }
+  75% {
+    transform: translate(-5px, 2px);
+    opacity: 0.38;
+  }
+  77% {
+    transform: translate(3px, 0);
+    opacity: 0.2;
+  }
+}
+
+@keyframes scaryFlash {
+  0%, 41%, 43%, 88%, 91%, 100% {
+    opacity: 0;
+  }
+  41.8% {
+    opacity: 0.85;
+  }
+  89% {
+    opacity: 0.55;
+  }
+  90% {
+    opacity: 0.95;
+  }
+}
+
+/* ==========================================================================
+   টপ স্ট্রিপ (ব্রুটালিস্ট বার)
+   ========================================================================== */
+.top-bar {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-crimson-dim);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.top-bar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.top-bar-domain {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.top-bar-tag {
+  padding: 2px 10px;
+  background: var(--crimson);
+  color: var(--text-white);
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: var(--radius-sharp);
+}
+
+/* ==========================================================================
+   মূল কন্টেইনার
+   ========================================================================== */
+.page-shell {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 24px 72px;
+  flex: 1 0 auto;
+}
+
+/* ==========================================================================
+   এক্সপ্লয়েট / ব্রেচ স্টাইল হিরো (ল্যাপটপ ভিউপোর্টে একদম ফিট)
+   ========================================================================== */
+.exploit-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.85fr);
+  gap: 44px;
+  align-items: center;
+  min-height: calc(100vh - 160px);
+  margin-bottom: 64px;
+}
+
+.hero-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.hero-code-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 340px;
+  margin-bottom: 16px;
+}
+
+.code-badge {
+  padding: 3px 12px;
+  background: var(--crimson);
+  color: var(--text-white);
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: var(--radius-sharp);
+  box-shadow: 0 0 24px var(--crimson-glow);
+}
+
+.code-line {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, var(--crimson-bright), transparent);
+}
+
+.hero-title {
+  font-size: clamp(3.4rem, 7.6vw, 6.2rem);
+  font-weight: 700;
+  line-height: 1.04;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+  text-shadow:
+    -3px 0 var(--crimson-bright),
+    3px 0 var(--cyan-glitch),
+    0 14px 44px var(--shadow-deep);
+  animation: textChromaGlitch 4.8s steps(2, end) infinite;
+}
+
+@keyframes textChromaGlitch {
+  0%, 91%, 100% {
+    transform: translate(0, 0);
+  }
+  92% {
+    transform: translate(-3px, 1px);
+  }
+  94% {
+    transform: translate(3px, -1px);
+  }
+}
+
+.hero-target-name {
+  font-size: clamp(1.45rem, 2.6vw, 2rem);
+  font-weight: 600;
+  color: var(--crimson-pale);
+  padding-left: 14px;
+  border-left: 4px solid var(--crimson);
+  margin-bottom: 28px;
+  text-shadow: 0 4px 18px var(--shadow-deep);
+}
+
+/* শার্প ডেটা ডাম্প টেবিল */
+.dossier-table {
+  width: 100%;
+  max-width: 480px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--border-crimson);
+  border-left: 1px solid var(--border-hairline);
+  background: var(--bg-surface);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  margin-bottom: 26px;
+}
+
+.dossier-row {
+  padding: 12px 16px;
+  border-right: 1px solid var(--border-hairline);
+  border-bottom: 1px solid var(--border-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dossier-row dt {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.dossier-row dd {
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.text-crimson {
+  color: var(--crimson-pale);
+}
+
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  background: var(--crimson);
+  color: var(--text-white);
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: var(--radius-sharp);
+  border: 1px solid var(--crimson-bright);
+  box-shadow: 0 10px 30px -8px var(--crimson-glow);
+  transition:
+    transform 180ms var(--ease-out),
+    background-color 180ms var(--ease-out);
+}
+
+.hero-cta:hover {
+  transform: translateY(-2px);
+  background: var(--crimson-bright);
+}
+
+/* ডান পাশে টার্গেট ফ্রেম */
+.hero-right {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.target-frame {
+  position: relative;
+  width: 100%;
+  max-width: 410px;
+  padding: 14px;
+}
+
+.corner {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-color: var(--crimson-bright);
+  border-style: solid;
+  pointer-events: none;
+}
+
+.corner.tl {
+  top: 0;
+  left: 0;
+  border-width: 3px 0 0 3px;
+}
+
+.corner.tr {
+  top: 0;
+  right: 0;
+  border-width: 3px 3px 0 0;
+}
+
+.corner.bl {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 3px 3px;
+}
+
+.corner.br {
+  bottom: 0;
+  right: 0;
+  border-width: 0 3px 3px 0;
+}
+
+.target-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--bg-fallback);
+  border: 1px solid var(--border-crimson-dim);
+  box-shadow:
+    0 24px 60px -18px var(--shadow-deep),
+    0 0 36px -14px var(--crimson-glow);
+}
+
+.target-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+  display: block;
+  filter: grayscale(100%) contrast(1.3) brightness(0.92);
+  transition:
+    transform 320ms var(--ease-out),
+    opacity 240ms var(--ease-out);
+}
+
+.target-frame:hover .target-img {
+  transform: scale(1.04);
+  filter: grayscale(20%) contrast(1.15);
+}
+
+.target-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    var(--scrim-mid) 4px
+  );
+  opacity: 0.45;
+}
+
+.target-stamp {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  padding: 4px 12px;
+  background: var(--crimson);
+  color: var(--text-white);
+  font-size: 1.15rem;
+  font-weight: 700;
+  border-radius: var(--radius-sharp);
+  box-shadow: 0 6px 20px var(--shadow-deep);
+}
+
+/* ==========================================================================
+   মিম-ফিড / ম্যাসনরি ফটো লেআউট (কোনো ক্রপ, ট্যাগ বা ক্যাপশন ছাড়া)
+   ========================================================================== */
+.gallery-section {
+  width: 100%;
+  scroll-margin-top: 24px;
+}
+
+.gallery-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.gallery-heading {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.gallery-header-line {
+  flex: 1 1 auto;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border-crimson), transparent);
+}
+
+.photo-grid,
+.photo-grid[data-count="1"],
+.photo-grid[data-count="2"] {
+  display: block;
+  column-count: 2;
+  column-gap: 18px;
+}
+
+@keyframes cardReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.photo-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  break-inside: avoid;
+  margin-bottom: 18px;
+  padding: 0;
+  background: var(--bg-fallback);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-media);
+  overflow: hidden;
+  cursor: pointer;
+  animation: cardReveal 300ms var(--ease-spring) var(--delay, 0ms) both;
+  transition:
+    transform 220ms var(--ease-out),
+    border-color 200ms var(--ease-out);
+}
+
+.photo-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-crimson);
+}
+
+.photo-frame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-canvas);
+}
+
+.photo-frame::after {
+  display: none;
+}
+
+.photo-mount {
+  width: 100%;
+  height: auto;
+}
+
+.photo-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  transition: transform 320ms var(--ease-out);
+}
+
+.photo-card:hover .photo-img {
+  transform: scale(1.025);
+}
+
+/* সব বাড়তি ট্যাগ, ক্যাপশন ও জুম-কিউ হাইড */
+.photo-tag,
+.photo-caption,
+.photo-zoom-cue {
+  display: none !important;
+}
+
+.photo-fallback {
+  width: 100%;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  text-align: center;
+  background: var(--bg-fallback);
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   ফুলস্ক্রিন লাইটবক্স
+   ========================================================================== */
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: var(--scrim-lightbox);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms var(--ease-out);
+}
+
+.lightbox-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.lightbox-backdrop.closing {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lightbox-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.lightbox-counter {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.lightbox-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lightbox-btn {
+  min-height: 38px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sharp);
+  border: 1px solid var(--border-hairline);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
+}
+
+.lightbox-btn:hover:not(:disabled) {
+  background: var(--bg-surface-strong);
+}
+
+.lightbox-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.lightbox-btn-close {
+  border-color: var(--border-crimson);
+  background: var(--crimson);
+  color: var(--text-white);
+}
+
+.lightbox-btn-close:hover {
+  background: var(--crimson-bright);
+}
+
+.lightbox-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 120px;
+  overflow: auto;
+}
+
+.lightbox-media-mount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.lightbox-img {
+  max-width: 100%;
+  max-height: calc(100vh - 130px);
+  object-fit: contain;
+  border-radius: var(--radius-sharp);
+  box-shadow: 0 28px 72px var(--shadow-deep);
+  cursor: zoom-in;
+  transition: transform 240ms var(--ease-spring);
+}
+
+.lightbox-img.is-zoomed {
+  transform: scale(1.65);
+  cursor: zoom-out;
+}
+
+.lightbox-nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 9px 14px;
+  border-radius: var(--radius-sharp);
+  border: 1px solid var(--border-hairline);
+  background: var(--bg-surface-strong);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out);
+}
+
+.lightbox-nav:hover:not(:disabled) {
+  background: var(--crimson);
+  border-color: var(--crimson-bright);
+  color: var(--text-white);
+}
+
+.lightbox-nav:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.lightbox-nav-prev {
+  left: 16px;
+}
+
+.lightbox-nav-next {
+  right: 16px;
+}
+
+.lightbox-footer {
+  display: none !important;
+}
+
+/* ==========================================================================
+   ফুটার
+   ========================================================================== */
+.site-footer {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  border-top: 1px solid var(--border-hairline);
+  padding: 20px 16px 26px;
+  text-align: center;
+}
+
+.footer-text {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   রেসপন্সিভ ও Reduced Motion
+   ========================================================================== */
+@media (max-width: 880px) {
+  .exploit-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+    min-height: auto;
+    margin-bottom: 48px;
+  }
+
+  .hero-right {
+    order: -1;
+  }
+
+  .target-frame {
+    max-width: 300px;
+  }
+
+  .lightbox-stage {
+    padding: 16px 16px 76px;
+  }
+
+  .lightbox-nav {
+    top: auto;
+    bottom: 20px;
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-shell {
+    padding: 24px 16px 52px;
+  }
+
+  .photo-grid,
+  .photo-grid[data-count="1"],
+  .photo-grid[data-count="2"] {
+    column-count: 1;
+  }
+
+  .lightbox-nav-text {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
